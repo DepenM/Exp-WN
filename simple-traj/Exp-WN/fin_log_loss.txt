@@ -1,1 +1,1 @@
-tensor(-30.3835, device='cuda:0', dtype=torch.float64)
+tensor(-50.5760, device='cuda:0', dtype=torch.float64)
