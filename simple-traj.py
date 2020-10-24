@@ -77,17 +77,17 @@ for init in inits:
 
     """
     frac governs the learning rate order
-    frac = 5 means lr = 1/(L^(1 - 1/5))
+    frac = 10 means lr = 1/(L^(1 - 1/10))
     frac = 0 means lr = 1/L
     """
-    frac = 5
+    frac = 10
     lr = 0.01
-    lr_limit = 1
+    lr_limit = 0.1
     r_u = 1.1
     r_d = 1.1
     batch_size = train_length
     tot_epochs = 100000
-    log_loss_limit = 30
+    log_loss_limit = 50
     traj_temp = np.reshape(np.array(init), (-1,1))
     last_log_loss = torch.tensor(0.0)
 
