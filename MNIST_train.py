@@ -3,14 +3,19 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
 import torch.optim as optim
 from torch.utils.data import Dataset
 from torchvision import transforms
 import seaborn as sns
+import argparse
 sns.set_style('white')
 
-seed = 9192
+parser = argparse.ArgumentParser()
+parser.add_argument("--seed", type=int, default=9192)
+parser.add_argument("--type", type=str, choices=["EWN", "SWN", "no-WN"], default="EWN")
+args = parser.parse_args()
+
+seed = args.seed
 np.random.seed(seed)
 torch.manual_seed(seed)
 
@@ -39,31 +44,28 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
 
 num_fc_layers = 2
 fc_neurons = [1024]
-log_loss_limit = 10
-norm_type = 'No-WN'
-if norm_type == 'exp-WN':
+log_loss_limit = 300
+save_values = [-10, -100, -300]
+curr_save_index = 0
+norm_type = args.type
+if norm_type == 'EWN':
     WN = True
     exp_WN = True
-    dir = 'MNIST_pruning/Exp-WN/e-' + str(log_loss_limit)
-elif norm_type == 'Standard-WN':
+    dir = './MNIST_pruning/' + str(seed) + '/EWN/'
+elif norm_type == 'SWN':
     WN = True
     exp_WN = False
-    dir = 'MNIST_pruning/Standard-WN/e-' + str(log_loss_limit)
+    dir = './MNIST_pruning/' + str(seed) + '/SWN/'
 else:
     WN = False
     exp_WN = False
-    dir = 'MNIST_pruning/No-WN/e-' + str(log_loss_limit)
+    dir = './MNIST_pruning/' + str(seed) + '/Unnorm/'
 
 act = 'relu'
 lr = 0.01
 r_u = 1.1
 r_d = 1.1
 tot_epochs = 10000
-
-#set load=True and sppecify load dir if want to resume training from some last loss value
-load = False
-if load:
-    load_dir = ''
 
 weight_layer_norm = []
 last_log_loss = torch.tensor(0.0)
@@ -150,33 +152,10 @@ class TestNet(nn.Module):
 
 if __name__ == '__main__':
     np.set_printoptions(suppress=True)
-    if load:
-        net = TestNet(d, k, num_fc_layers, fc_neurons, act)
-        net.to(device)
-        net.load_state_dict(torch.load(load_dir + '/weights.pth'))
-        filename = load_dir + '/fin_log_loss.txt'
-        with open(filename, 'r') as f:
-            last_log_loss = torch.tensor(float(f.readline()))
-        filename = load_dir + '/fin_lr.txt'
-        with open(filename, 'r') as f:
-            lr = float(f.readline())
-    elif WN:
+    if WN:
         WN = False
         net = TestNet(d, k, num_fc_layers, fc_neurons, act)
         net.to(device)
-        name2 = dir + '/init_weight_layer_norm.txt'
-        init_weight_layer_norm = []
-        for name, param in net.named_parameters():
-            if 'bias' not in name:
-                init_weight_layer_norm.append(torch.norm(param, dim=1, keepdim=True).detach().cpu().numpy())
-        for i in range(len(init_weight_layer_norm)):
-            str_w_norm = []
-            for j in range(init_weight_layer_norm[i].shape[0]):
-                str_w_norm.append(str(init_weight_layer_norm[i][j, -1]))
-            with open(name2, 'a+') as f:
-                f.write('\n'.join(str_w_norm))
-                f.write('\n\n')
-        f.close()
 
         for i, data in enumerate(trainloader, 0):
             inputs,labels = data[0].to(device), data[1].to(device)
@@ -211,19 +190,6 @@ if __name__ == '__main__':
     else:
         net = TestNet(d, k, num_fc_layers, fc_neurons, act)
         net.to(device)
-        name2 = dir + '/init_weight_layer_norm.txt'
-        init_weight_layer_norm = []
-        for name, param in net.named_parameters():
-            if 'bias' not in name:
-                init_weight_layer_norm.append(torch.norm(param, dim=1, keepdim=True).detach().cpu().numpy())
-        for i in range(len(init_weight_layer_norm)):
-            str_w_norm = []
-            for j in range(init_weight_layer_norm[i].shape[0]):
-                str_w_norm.append(str(init_weight_layer_norm[i][j, -1]))
-            with open(name2, 'a+') as f:
-                f.write('\n'.join(str_w_norm))
-                f.write('\n\n')
-        f.close()
 
     train_loss = []
     train_acc = []
@@ -248,7 +214,7 @@ if __name__ == '__main__':
 
     while(True):  # loop over the dataset multiple times
         net = net.train()
-        if not load and epoch==0:
+        if  epoch==0:
             total_loss = 0.0
             acc = 0.0
             with torch.no_grad():
@@ -436,94 +402,51 @@ if __name__ == '__main__':
         test_loss.append(total_loss / (i + 1))
         test_acc.append(acc.item()/test_length)
 
+        if last_log_loss < save_values[curr_save_index]:
+            dir2 = dir + str(save_values[curr_save_index])
+            torch.save(net.state_dict(), dir2 + '/weights.pth')
+
+            for i in range(len(weight_layer_norm)):
+                name = dir2 + '/weight_norm_' + str(i) + '.npz'
+                with open(name, 'wb') as f:
+                    np.savez(f, w_norm=weight_layer_norm[i])
+
+            str_train_loss = []
+            for i in range(len(train_loss)):
+                str_train_loss.append(str(train_loss[i]))
+            name = dir2 + '/train_loss.txt'
+            with open(name, 'w') as f:
+                f.write('\n'.join(str_train_loss))
+            f.close()
+
+            str_test_loss = []
+            for i in range(len(test_loss)):
+                str_test_loss.append(str(test_loss[i]))
+            name = dir2 + '/test_loss.txt'
+            with open(name, 'w') as f:
+                f.write('\n'.join(str_test_loss))
+            f.close()
+
+            str_train_acc = []
+            for i in range(len(train_acc)):
+                str_train_acc.append(str(train_acc[i]))
+            name = dir2 + '/train_acc.txt'
+            with open(name, 'w') as f:
+                f.write('\n'.join(str_train_acc))
+            f.close()
+
+            str_test_acc = []
+            for i in range(len(test_acc)):
+                str_test_acc.append(str(test_acc[i]))
+            name = dir2 + '/test_acc.txt'
+            with open(name, 'w') as f:
+                f.write('\n'.join(str_test_acc))
+            f.close()
+
+            curr_save_index += 1
+
         if last_log_loss < -log_loss_limit or lr==0 or epoch>tot_epochs:
-            name = dir + '/fin_log_loss.txt'
-            with open(name, 'w') as f:
-                f.write(str(last_log_loss.detach().cpu().numpy()))
-            f.close()
-            name = dir + '/fin_lr.txt'
-            with open(name, 'w') as f:
-                f.write(str(lr))
-            f.close()
             break
 
         if acc.item()/test_length > best_val_acc:
             best_val_acc = acc.item()/test_length
-
-torch.save(net.state_dict(), dir + '/weights.pth')
-name = dir + '/weight_layer_norm.txt'
-for i in range(len(weight_layer_norm)):
-    str_w_norm = []
-    if WN:
-        for j in range(weight_layer_norm[i].shape[1]):
-            str_w_norm.append(str(weight_layer_norm[i][-1,j]))
-    else:
-        for j in range(weight_layer_norm[i].shape[0]):
-            str_w_norm.append(str(weight_layer_norm[i][j, -1]))
-    with open(name, 'a+') as f:
-        f.write('\n'.join(str_w_norm))
-        f.write('\n\n')
-f.close()
-
-for i in range(len(weight_layer_norm)):
-    if WN:
-        for j in range(weight_layer_norm[i].shape[1]):
-            plt.plot(np.arange(weight_layer_norm[i].shape[0]), weight_layer_norm[i][:,j], label=str(j))
-    else:
-        for j in range(weight_layer_norm[i].shape[0]):
-            plt.plot(np.arange(weight_layer_norm[i].shape[1]), weight_layer_norm[i][j, :], label=str(j))
-    plt.legend()
-    plt.savefig(dir + '/weight_layer_' + str(i) + '.png')
-    plt.close()
-
-for i in range(len(weight_layer_norm)):
-    name = dir + '/weight_norm_' + str(i) + '.npz'
-    with open(name, 'wb') as f:
-        np.savez(f, w_norm=weight_layer_norm[i])
-
-print('Best_val_acc is ' + str(best_val_acc))
-
-plt.plot(list(range(len(train_loss))), train_loss, label='train_loss')
-plt.legend(loc='upper right')
-plt.show()
-
-plt.plot(list(range(len(train_loss))), test_loss, label='test_loss')
-plt.legend(loc='upper right')
-plt.show()
-
-str_train_loss = []
-for i in range(len(train_loss)):
-    str_train_loss.append(str(train_loss[i]))
-name = dir + '/train_loss.txt'
-with open(name, 'w') as f:
-    f.write('\n'.join(str_train_loss))
-f.close()
-
-str_test_loss = []
-for i in range(len(test_loss)):
-    str_test_loss.append(str(test_loss[i]))
-name = dir + '/test_loss.txt'
-with open(name, 'w') as f:
-    f.write('\n'.join(str_test_loss))
-f.close()
-
-plt.plot(list(range(len(train_acc))), train_acc, label='train_acc')
-plt.plot(list(range(len(test_acc))), test_acc, label='test_acc')
-plt.legend(loc='upper right')
-plt.show()
-
-str_train_acc = []
-for i in range(len(train_acc)):
-    str_train_acc.append(str(train_acc[i]))
-name = dir + '/train_acc.txt'
-with open(name, 'w') as f:
-    f.write('\n'.join(str_train_acc))
-f.close()
-
-str_test_acc = []
-for i in range(len(test_acc)):
-    str_test_acc.append(str(test_acc[i]))
-name = dir + '/test_acc.txt'
-with open(name, 'w') as f:
-    f.write('\n'.join(str_test_acc))
-f.close()
