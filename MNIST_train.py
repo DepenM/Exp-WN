@@ -59,7 +59,7 @@ elif norm_type == 'SWN':
 else:
     WN = False
     exp_WN = False
-    dir = './MNIST_pruning/' + str(seed) + '/Unnorm/'
+    dir = './MNIST_pruning/' + str(seed) + '/no-WN/'
 
 act = 'relu'
 lr = 0.01

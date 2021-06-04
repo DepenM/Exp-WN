@@ -17,7 +17,8 @@ num_conv_layers = 13
 num_fc_layers = 1
 
 for ind1, l in enumerate(losses):
-    base_name  = dir + str(l) + '/weight_layer_norm'
+    #base_name  = dir + str(l) + '/weight_layer_norm'
+    base_name = str(l) + '_weight_layer_norm'
     for j in range(ind1 + 2):
         if j==0:
             name = base_name + '.txt'

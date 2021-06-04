@@ -217,7 +217,7 @@ class TestNet(nn.Module):
 
 if __name__ == '__main__':
     np.set_printoptions(suppress=True)
-    for ind1, curr_loss_val in loss_values:
+    for ind1, curr_loss_val in enumerate(loss_values):
         if load:
             load_dir = load_dir_base_2 + str(curr_loss_val)
             net = TestNet(k, num_conv_layers, num_fc_layers, kernel_size, num_filters, fc_neurons, act, max_pool_indices)
@@ -257,8 +257,6 @@ if __name__ == '__main__':
                         norms = np.array(norms)
                         indices[i] = list(np.sort(np.argsort(norms)[nums[i]:]))
 
-                for j in range(len(indices)):
-                    print(len(indices[j]))
                 new_num_filters = []
                 for i in range(num_conv_layers):
                     new_num_filters.append(len(indices[i]))
@@ -384,7 +382,7 @@ if __name__ == '__main__':
 
                 for i, data in enumerate(trainloader, 0):
                     inputs, labels = data[0].to(device), data[1].to(device)
-                    outputs = net2(inputs, 0)
+                    outputs = net2(inputs)
                     temp = outputs.gather(1, labels.unsqueeze(1))
                     outputs2 = temp - outputs
                     temp_vec_2 = temp_vec[labels]

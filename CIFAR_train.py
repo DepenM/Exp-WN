@@ -48,8 +48,8 @@ kernel_size = [3,3,3,3,3,3,3,3,3,3,3,3,3]
 num_filters = [64,64,128,128,256,256,256,512,512,512,512,512,512]
 max_pool_indices = [1,3,6,9,12]
 fc_neurons = []
-log_loss_limit = 0
-save_values = [1, 0]
+log_loss_limit = 300
+save_values = [-10, -100, -300]
 curr_save_index = 0
 norm_type = args.type
 if norm_type == 'EWN':

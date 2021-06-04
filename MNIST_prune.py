@@ -58,7 +58,7 @@ elif norm_type == 'SWN':
 else:
     WN = False
     exp_WN = False
-    load_dir_base_2 = load_dir_base + 'Unnorm/'
+    load_dir_base_2 = load_dir_base + 'no-WN/'
 
 act = 'relu'
 class TestNet(nn.Module):
@@ -143,7 +143,7 @@ class TestNet(nn.Module):
 
 if __name__ == '__main__':
     np.set_printoptions(suppress=True)
-    for ind1, curr_loss_val in loss_values:
+    for ind1, curr_loss_val in enumerate(loss_values):
         if load:
             load_dir = load_dir_base_2 + str(curr_loss_val)
             net = TestNet(d, k, num_fc_layers, fc_neurons, act)
